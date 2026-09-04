@@ -325,7 +325,9 @@ enum TranscriptTurnClassifier {
     private static func hasVisibleUserContent(_ message: ChatMessage) -> Bool {
         guard message.role == "user" else { return false }
 
-        if message.content?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+        // Early-exit scan for "has any non-whitespace", same result as the old
+        // trim-to-empty test without allocating a trimmed copy of the content.
+        if message.content?.contains(where: { !$0.isWhitespace && !$0.isNewline }) == true {
             return true
         }
 

@@ -235,7 +235,6 @@ private struct StreamingReasoningTextView: UIViewRepresentable {
             textColor: textColor
         )
         textView.textAlignment = layoutDirection == .rightToLeft ? .right : .left
-        textView.accessibilityLabel = state.sourceText
     }
 
     /// Reports at most the row body cap. Past it the text view scrolls itself
@@ -326,6 +325,9 @@ private struct StreamingReasoningTextView: UIViewRepresentable {
             )
 
             if storageUpdate != .unchanged {
+                // VoiceOver re-reads the whole label on assignment, so only
+                // publish it when the rendered text actually changed.
+                textView.accessibilityLabel = state.sourceText
                 textView.invalidateIntrinsicContentSize()
             }
         }

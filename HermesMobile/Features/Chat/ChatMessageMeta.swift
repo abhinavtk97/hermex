@@ -7,18 +7,22 @@ import SwiftUI
 /// ever sits under text the user can act on.
 enum TranscriptMessageMetaPolicy {
     /// Render IDs of the last bubble-bearing reply of each settled assistant turn.
+    /// `turnKeysByAnchorID` accepts the precomputed turn keys shared by the other
+    /// per-body-pass consumers; nil computes them here.
     static func terminalReplyRenderIDs(
         transcriptMessages: [TranscriptMessage],
         messages: [ChatMessage],
         messageOffset: Int?,
         rendersBubble: (ChatMessage) -> Bool,
         isStreamActive: Bool,
-        streamingAssistantMessageID: String?
+        streamingAssistantMessageID: String?,
+        turnKeysByAnchorID: [String: String]? = nil
     ) -> Set<String> {
-        let turnKeyByAnchorID = TranscriptTurnClassifier.assistantTurnKeysByAnchorID(
-            messages,
-            messageOffset: messageOffset
-        )
+        let turnKeyByAnchorID = turnKeysByAnchorID
+            ?? TranscriptTurnClassifier.assistantTurnKeysByAnchorID(
+                messages,
+                messageOffset: messageOffset
+            )
         let unsettledTurnKey = isStreamActive
             ? TranscriptTurnClassifier.latestTurnKey(in: messages, messageOffset: messageOffset)
             : nil

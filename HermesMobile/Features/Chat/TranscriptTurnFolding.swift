@@ -84,6 +84,8 @@ struct TranscriptTurnFolds: Equatable {
     ///     with nothing visible to hide gets no row.
     ///   - rendersBubble: whether a transcript message draws a bubble at all;
     ///     activity-only assistant shells do not.
+    ///   - turnKeysByAnchorID: precomputed turn keys for `messages`, shared by
+    ///     every per-body-pass consumer; nil computes them here.
     static func derive(
         transcriptMessages: [TranscriptMessage],
         messages: [ChatMessage],
@@ -92,13 +94,15 @@ struct TranscriptTurnFolds: Equatable {
         rendersBubble: (ChatMessage) -> Bool,
         isStreamActive: Bool,
         streamingAssistantMessageID: String?,
-        latestRunOutcome: TranscriptTurnRunOutcome?
+        latestRunOutcome: TranscriptTurnRunOutcome?,
+        turnKeysByAnchorID: [String: String]? = nil
     ) -> TranscriptTurnFolds {
         let offset = max(0, messageOffset ?? 0)
-        let turnKeyByAnchorID = TranscriptTurnClassifier.assistantTurnKeysByAnchorID(
-            messages,
-            messageOffset: messageOffset
-        )
+        let turnKeyByAnchorID = turnKeysByAnchorID
+            ?? TranscriptTurnClassifier.assistantTurnKeysByAnchorID(
+                messages,
+                messageOffset: messageOffset
+            )
 
         var startTimestampByTurnKey: [String: Double] = [:]
         for (index, message) in messages.enumerated()

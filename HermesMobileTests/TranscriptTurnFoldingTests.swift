@@ -224,6 +224,22 @@ final class TranscriptTurnFoldingTests: XCTestCase {
         XCTAssertEqual(folds.folds.first?.hostRenderID, "transcript:41")
     }
 
+    func testPrecomputedTurnKeysDeriveIdenticalFolds() {
+        let messages = [
+            user("u1", timestamp: 100),
+            assistant("a1", text: "Looking.", timestamp: 105),
+            assistant("a2", text: "Still looking.", timestamp: 110),
+            user("u2", timestamp: 120),
+            assistant("a3", text: "Done again.", timestamp: 125)
+        ]
+        let precomputed = TranscriptTurnClassifier.assistantTurnKeysByAnchorID(messages, messageOffset: 40)
+
+        XCTAssertEqual(
+            derive(messages, activityAnchorIDs: [], messageOffset: 40, turnKeysByAnchorID: precomputed),
+            derive(messages, activityAnchorIDs: [], messageOffset: 40)
+        )
+    }
+
     // MARK: - Helpers
 
     private func derive(
@@ -232,7 +248,8 @@ final class TranscriptTurnFoldingTests: XCTestCase {
         messageOffset: Int? = nil,
         isStreamActive: Bool = false,
         streamingAssistantMessageID: String? = nil,
-        outcome: TranscriptTurnRunOutcome? = nil
+        outcome: TranscriptTurnRunOutcome? = nil,
+        turnKeysByAnchorID: [String: String]? = nil
     ) -> TranscriptTurnFolds {
         let transcript = ChatViewModel.transcriptMessages(
             from: messages,
@@ -247,7 +264,8 @@ final class TranscriptTurnFoldingTests: XCTestCase {
             rendersBubble: { $0.content?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false },
             isStreamActive: isStreamActive,
             streamingAssistantMessageID: streamingAssistantMessageID,
-            latestRunOutcome: outcome
+            latestRunOutcome: outcome,
+            turnKeysByAnchorID: turnKeysByAnchorID
         )
     }
 

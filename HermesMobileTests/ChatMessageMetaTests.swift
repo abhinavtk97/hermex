@@ -71,13 +71,30 @@ final class ChatMessageMetaTests: XCTestCase {
         XCTAssertEqual(terminalIDs(messages, messageOffset: 40), ["transcript:41"])
     }
 
+    func testPrecomputedTurnKeysDeriveIdenticalTerminalReplies() {
+        let messages = [
+            user("u1"),
+            assistant("a1", text: "Looking."),
+            assistant("a2", text: "Still looking."),
+            user("u2"),
+            assistant("a3", text: "Done.")
+        ]
+        let precomputed = TranscriptTurnClassifier.assistantTurnKeysByAnchorID(messages)
+
+        XCTAssertEqual(
+            terminalIDs(messages, turnKeysByAnchorID: precomputed),
+            terminalIDs(messages)
+        )
+    }
+
     // MARK: - Helpers
 
     private func terminalIDs(
         _ messages: [ChatMessage],
         messageOffset: Int? = nil,
         isStreamActive: Bool = false,
-        streamingAssistantMessageID: String? = nil
+        streamingAssistantMessageID: String? = nil,
+        turnKeysByAnchorID: [String: String]? = nil
     ) -> Set<String> {
         let transcript = ChatViewModel.transcriptMessages(
             from: messages,
@@ -90,7 +107,8 @@ final class ChatMessageMetaTests: XCTestCase {
             messageOffset: messageOffset,
             rendersBubble: { $0.content?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false },
             isStreamActive: isStreamActive,
-            streamingAssistantMessageID: streamingAssistantMessageID
+            streamingAssistantMessageID: streamingAssistantMessageID,
+            turnKeysByAnchorID: turnKeysByAnchorID
         )
     }
 

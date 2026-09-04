@@ -238,6 +238,7 @@
 		C03120000000000000B008 /* TurnFileChangeAggregatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03120000000000000F008 /* TurnFileChangeAggregatorTests.swift */; };
 		C0AA02000000000000000B03 /* ToolCallSummaryFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0AA02000000000000000F03 /* ToolCallSummaryFormatterTests.swift */; };
 		C0AA03000000000000000B02 /* TranscriptTurnFoldingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0AA03000000000000000F02 /* TranscriptTurnFoldingTests.swift */; };
+		C0AA08000000000000000B08 /* ChatTranscriptReasoningDisplayTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0AA08000000000000000F08 /* ChatTranscriptReasoningDisplayTests.swift */; };
 		C0AA07000000000000000B07 /* ChatTranscriptRowEntryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0AA07000000000000000F07 /* ChatTranscriptRowEntryTests.swift */; };
 		C0AA05000000000000000B02 /* ChatMessageMetaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0AA05000000000000000F02 /* ChatMessageMetaTests.swift */; };
 		C03190000000000000B001 /* AttachmentAudioDetection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03190000000000000F001 /* AttachmentAudioDetection.swift */; };
@@ -626,6 +627,7 @@
 		C03120000000000000F008 /* TurnFileChangeAggregatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TurnFileChangeAggregatorTests.swift; sourceTree = "<group>"; };
 		C0AA02000000000000000F03 /* ToolCallSummaryFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCallSummaryFormatterTests.swift; sourceTree = "<group>"; };
 		C0AA03000000000000000F02 /* TranscriptTurnFoldingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptTurnFoldingTests.swift; sourceTree = "<group>"; };
+		C0AA08000000000000000F08 /* ChatTranscriptReasoningDisplayTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTranscriptReasoningDisplayTests.swift; sourceTree = "<group>"; };
 		C0AA07000000000000000F07 /* ChatTranscriptRowEntryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTranscriptRowEntryTests.swift; sourceTree = "<group>"; };
 		C0AA05000000000000000F02 /* ChatMessageMetaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessageMetaTests.swift; sourceTree = "<group>"; };
 		C03190000000000000F001 /* AttachmentAudioDetection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentAudioDetection.swift; sourceTree = "<group>"; };
@@ -940,6 +942,7 @@
 				C0AA020000000000000000F13 /* TranscriptLogRowBodyWindowTests.swift */,
 				C0AA0208000000000000F002 /* ChatMessageActionMenuTests.swift */,
 				C0AA03000000000000000F02 /* TranscriptTurnFoldingTests.swift */,
+				C0AA08000000000000000F08 /* ChatTranscriptReasoningDisplayTests.swift */,
 				C0AA07000000000000000F07 /* ChatTranscriptRowEntryTests.swift */,
 				C0AA05000000000000000F02 /* ChatMessageMetaTests.swift */,
 				C03190000000000000F003 /* AttachmentAudioDetectionTests.swift */,
@@ -1888,6 +1891,7 @@
 				C0AA020000000000000000B13 /* TranscriptLogRowBodyWindowTests.swift in Sources */,
 				C0AA0208000000000000B002 /* ChatMessageActionMenuTests.swift in Sources */,
 				C0AA03000000000000000B02 /* TranscriptTurnFoldingTests.swift in Sources */,
+				C0AA08000000000000000B08 /* ChatTranscriptReasoningDisplayTests.swift in Sources */,
 				C0AA07000000000000000B07 /* ChatTranscriptRowEntryTests.swift in Sources */,
 				C0AA05000000000000000B02 /* ChatMessageMetaTests.swift in Sources */,
 				C03190000000000000B003 /* AttachmentAudioDetectionTests.swift in Sources */,

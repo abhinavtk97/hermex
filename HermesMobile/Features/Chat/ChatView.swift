@@ -1204,7 +1204,9 @@ struct ChatView: View {
             messages: viewModel.messages,
             displayedTranscriptMessages: displayedTranscriptMessages,
             compressionReferenceCard: viewModel.compressionReferenceCard,
-            reasoningGroups: reasoningGroups,
+            reasoningGroupsForAnchor: { anchorMessageID in
+                viewModel.reasoningGroupsForAnchor(anchorMessageID)
+            },
             completedToolCallGroupsForAnchor: { anchorMessageID in
                 viewModel.completedToolCallGroupsForAnchor(anchorMessageID)
             },
@@ -1430,7 +1432,9 @@ struct ChatView: View {
     }
 
     private func shouldRenderMessageRow(_ message: ChatMessage) -> Bool {
-        if message.content?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+        // Early-exit scan for "has any non-whitespace"; this runs per row per
+        // body pass, so it must not allocate a trimmed copy of the content.
+        if message.content?.contains(where: { !$0.isWhitespace && !$0.isNewline }) == true {
             return true
         }
 
@@ -1464,7 +1468,8 @@ struct ChatView: View {
             rendersBubble: shouldRenderMessageRow,
             isStreamActive: viewModel.activeStreamID != nil,
             streamingAssistantMessageID: viewModel.streamingAssistantMessageID,
-            latestRunOutcome: viewModel.latestRunOutcome
+            latestRunOutcome: viewModel.latestRunOutcome,
+            turnKeysByAnchorID: viewModel.turnKeysByAnchorID
         )
     }
 
@@ -1476,7 +1481,8 @@ struct ChatView: View {
             messageOffset: viewModel.messagesOffset,
             rendersBubble: shouldRenderMessageRow,
             isStreamActive: viewModel.activeStreamID != nil,
-            streamingAssistantMessageID: viewModel.streamingAssistantMessageID
+            streamingAssistantMessageID: viewModel.streamingAssistantMessageID,
+            turnKeysByAnchorID: viewModel.turnKeysByAnchorID
         )
     }
 

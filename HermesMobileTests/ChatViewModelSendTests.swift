@@ -2062,6 +2062,112 @@ final class ChatViewModelSendTests: XCTestCase {
     }
 
     @MainActor
+    func testDisplayedReasoningGroupsMemoMatchesPureMappingAcrossAppendsAndEdits() async throws {
+        let streamClient = SpySSEStreamingClient()
+        let viewModel = try makeViewModel(streamClient: streamClient) { request in
+            switch request.url?.path {
+            case "/api/chat/start":
+                return apiTestJSONResponse("""
+                {
+                  "session_id": "session-abc",
+                  "stream_id": "stream-123"
+                }
+                """, for: request)
+            case "/api/session":
+                return apiTestJSONResponse("""
+                {
+                  "session": {
+                    "session_id": "session-abc",
+                    "title": "Reasoning memo",
+                    "messages": [
+                      {
+                        "role": "user",
+                        "content": "Stream a response",
+                        "timestamp": 1770000100,
+                        "message_id": "user-1"
+                      },
+                      {
+                        "role": "assistant",
+                        "content": "Settled answer.",
+                        "timestamp": 1770000110,
+                        "message_id": "assistant-1",
+                        "reasoning": "Settled thinking that survives the reload."
+                      }
+                    ]
+                  }
+                }
+                """, for: request)
+            default:
+                XCTFail("Unexpected request path: \(request.url?.path ?? "nil")")
+                throw URLError(.badURL)
+            }
+        }
+
+        func assertMemoMatchesPureMapping(_ message: String, line: UInt = #line) {
+            let memo = viewModel.displayedReasoningGroups
+            XCTAssertEqual(
+                memo,
+                ChatViewModel.reasoningDisplayGroups(
+                    messages: viewModel.messages,
+                    messageOffset: viewModel.messagesOffset,
+                    archivedGroups: viewModel.completedReasoningGroups
+                ),
+                message,
+                line: line
+            )
+            // Repeated reads of the memoized value stay stable.
+            XCTAssertEqual(viewModel.displayedReasoningGroups, memo, message, line: line)
+        }
+
+        // Empty transcript before any work.
+        assertMemoMatchesPureMapping("memo should match for an empty transcript")
+
+        // Append: optimistic user message + live streaming assistant turn.
+        let didStart = await viewModel.sendMessage("Stream a response")
+        XCTAssertTrue(didStart)
+        assertMemoMatchesPureMapping("memo should match after the optimistic append")
+
+        // Live reasoning only fills the live block; the archived group appears
+        // once the first token archives it.
+        streamClient.emit(.reasoning("Think about streams first."))
+        streamClient.emit(.token("First answer."))
+        let liveAssistantID = try XCTUnwrap(viewModel.streamingAssistantMessageID)
+        XCTAssertEqual(
+            viewModel.displayedReasoningGroups.map(\.text),
+            ["Think about streams first."]
+        )
+        assertMemoMatchesPureMapping("memo should match after reasoning archives onto the stream")
+
+        // Edit: a second token mutates the assistant message content in place.
+        streamClient.emit(.token(" Continued."))
+        XCTAssertEqual(viewModel.messages.last?.content, "First answer. Continued.")
+        assertMemoMatchesPureMapping("memo should match after a streaming content edit")
+
+        // The anchor lookup returns only the streaming turn's slice.
+        XCTAssertEqual(
+            viewModel.reasoningGroupsForAnchor(liveAssistantID).map(\.text),
+            ["Think about streams first."]
+        )
+        XCTAssertTrue(viewModel.reasoningGroupsForAnchor("some-other-anchor").isEmpty)
+        XCTAssertTrue(viewModel.reasoningGroupsForAnchor(nil).isEmpty)
+
+        // Reload: replacing the messages with settled server content re-derives
+        // the memo from the reloaded transcript.
+        await viewModel.loadMessages()
+        XCTAssertEqual(viewModel.messages.last?.messageId, "assistant-1")
+        XCTAssertEqual(
+            viewModel.displayedReasoningGroups.map(\.text),
+            ["Settled thinking that survives the reload."]
+        )
+        assertMemoMatchesPureMapping("memo should match after a reload")
+        XCTAssertEqual(
+            viewModel.reasoningGroupsForAnchor("assistant-1").map(\.text),
+            ["Settled thinking that survives the reload."]
+        )
+        XCTAssertTrue(viewModel.reasoningGroupsForAnchor(liveAssistantID).isEmpty)
+    }
+
+    @MainActor
     func testInterimAssistantEventUpdatesTranscriptBeforeCompletion() async throws {
         let streamClient = SpySSEStreamingClient()
         let viewModel = try makeViewModel(streamClient: streamClient) { request in

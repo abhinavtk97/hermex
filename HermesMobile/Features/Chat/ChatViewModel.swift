@@ -253,13 +253,21 @@ final class ChatViewModel {
     private(set) var completedReasoningGroups: [ReasoningGroup] = [] {
         didSet { recomputeDisplayedTranscriptMessages() }
     }
-    var displayedReasoningGroups: [ReasoningGroup] {
-        Self.reasoningDisplayGroups(
-            messages: messages,
-            messageOffset: messagesOffset,
-            archivedGroups: completedReasoningGroups
-        )
+    /// Memoized reasoning display groups, recomputed once whenever `messages`,
+    /// `messagesOffset`, or `completedReasoningGroups` changes. Views read this
+    /// single cached value instead of re-running the full reasoning pass on
+    /// every body evaluation.
+    private(set) var displayedReasoningGroups: [ReasoningGroup] = []
+    @ObservationIgnored private var reasoningGroupAnchorLookup = ReasoningGroupAnchorLookup()
+    /// Turn keys shared by the reasoning pass, turn folds, and terminal-reply
+    /// rows so one dictionary is computed per mutation instead of one per
+    /// consumer per body pass.
+    @ObservationIgnored private(set) var turnKeysByAnchorID: [String: String] = [:]
+
+    func reasoningGroupsForAnchor(_ anchorMessageID: String?) -> [ReasoningGroup] {
+        reasoningGroupAnchorLookup.groups(anchorMessageID: anchorMessageID)
     }
+
     func completedToolCallGroupsForAnchor(_ anchorMessageID: String?) -> [ToolCallGroup] {
         completedToolCallGroupLookup.groups(anchorMessageID: anchorMessageID)
     }
@@ -281,8 +289,26 @@ final class ChatViewModel {
     }
 
     private func recomputeDisplayedTranscriptMessages() {
+        // Reasoning groups depend on the same inputs that triggered this
+        // recompute, so refresh the memo (and its anchor index) before the
+        // transcript mapping reads them.
+        let turnKeys = TranscriptTurnClassifier.assistantTurnKeysByAnchorID(
+            messages,
+            messageOffset: messagesOffset
+        )
+        turnKeysByAnchorID = turnKeys
+        let reasoningGroups = Self.reasoningDisplayGroups(
+            messages: messages,
+            messageOffset: messagesOffset,
+            archivedGroups: completedReasoningGroups,
+            turnKeysByAnchorID: turnKeys
+        )
+        if displayedReasoningGroups != reasoningGroups {
+            displayedReasoningGroups = reasoningGroups
+            reasoningGroupAnchorLookup = ReasoningGroupAnchorLookup(groups: reasoningGroups)
+        }
         let renderedActivityAnchorIDs = Self.transcriptActivityAnchorIDs(
-            reasoningGroups: displayedReasoningGroups,
+            reasoningGroups: reasoningGroups,
             toolCallGroups: completedToolCallGroups
         )
         displayedTranscriptMessages = Self.transcriptMessages(
@@ -5553,6 +5579,23 @@ struct ReasoningGroup: Identifiable, Equatable {
     }
 }
 
+/// Indexes reasoning groups by their anchoring transcript row so each
+/// `ChatTranscriptMessageBlock` receives only its own slice — comparing a row's
+/// inputs never walks the whole transcript's thinking text.
+struct ReasoningGroupAnchorLookup: Equatable {
+    private let groupsByAnchor: [String?: [ReasoningGroup]]
+
+    init(groups: [ReasoningGroup] = []) {
+        groupsByAnchor = Dictionary(grouping: groups) { group in
+            group.anchorMessageID
+        }
+    }
+
+    func groups(anchorMessageID: String?) -> [ReasoningGroup] {
+        groupsByAnchor[anchorMessageID] ?? []
+    }
+}
+
 struct TranscriptMessage: Identifiable, Equatable {
     let loadedIndex: Int
     let renderID: String
@@ -5614,12 +5657,14 @@ extension ChatViewModel {
     nonisolated static func reasoningDisplayGroups(
         messages: [ChatMessage],
         messageOffset: Int? = nil,
-        archivedGroups: [ReasoningGroup]
+        archivedGroups: [ReasoningGroup],
+        turnKeysByAnchorID: [String: String]? = nil
     ) -> [ReasoningGroup] {
-        let turnKeysByMessageID = TranscriptTurnClassifier.assistantTurnKeysByAnchorID(
-            messages,
-            messageOffset: messageOffset
-        )
+        let turnKeysByMessageID = turnKeysByAnchorID
+            ?? TranscriptTurnClassifier.assistantTurnKeysByAnchorID(
+                messages,
+                messageOffset: messageOffset
+            )
         let assistantMessagesByID = messages.enumerated().reduce(into: [String: ChatMessage]()) { result, entry in
             let message = entry.element
             guard message.role == "assistant" else { return }
@@ -5659,14 +5704,18 @@ extension ChatViewModel {
             }
         }
 
+        // One normalized key per candidate; the map keeps the latest index for
+        // each so later duplicates win exactly as before.
+        let candidateKeys = candidates.map { candidate in
+            "\(candidate.turnKey)::\(normalizedReasoningKey(candidate.text))"
+        }
         var latestCandidateIndexByKey: [String: Int] = [:]
-        for (index, candidate) in candidates.enumerated() {
-            latestCandidateIndexByKey["\(candidate.turnKey)::\(normalizedReasoningKey(candidate.text))"] = index
+        for (index, key) in candidateKeys.enumerated() {
+            latestCandidateIndexByKey[key] = index
         }
 
         return candidates.enumerated().compactMap { index, candidate in
-            let key = "\(candidate.turnKey)::\(normalizedReasoningKey(candidate.text))"
-            guard latestCandidateIndexByKey[key] == index else { return nil }
+            guard latestCandidateIndexByKey[candidateKeys[index]] == index else { return nil }
 
             return ReasoningGroup(
                 id: "reasoning-\(candidate.anchorMessageID ?? "unanchored")-\(candidate.order)",
@@ -5755,7 +5804,10 @@ extension ChatViewModel {
     }
 
     nonisolated private static func hasTranscriptMessageRowContent(_ message: ChatMessage) -> Bool {
-        if message.content?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+        // Early-exit scan for "has any non-whitespace": nil content falls
+        // through to the attachment check, same as the old trim-to-empty test
+        // without allocating a trimmed copy of the full content per row.
+        if message.content?.contains(where: { !$0.isWhitespace && !$0.isNewline }) == true {
             return true
         }
 
@@ -5883,6 +5935,9 @@ extension ChatViewModel {
             .filter { $0.count >= 20 } ?? []
 
         for paragraph in visibleParagraphs {
+            // The pre-check keeps a non-matching paragraph an O(n) scan and
+            // avoids reallocating the reasoning text when nothing matches.
+            guard output.contains(paragraph) else { continue }
             output = output.replacingOccurrences(of: paragraph, with: "")
         }
 

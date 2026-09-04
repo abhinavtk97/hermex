@@ -11,7 +11,9 @@ struct ChatTranscriptView: View {
     let messages: [ChatMessage]
     let displayedTranscriptMessages: [TranscriptMessage]
     let compressionReferenceCard: CompressionReferenceCard?
-    let reasoningGroups: [ReasoningGroup]
+    /// Reasoning groups anchored to one transcript row, so every row compares
+    /// only its own slice instead of the whole transcript's thinking text.
+    let reasoningGroupsForAnchor: (String?) -> [ReasoningGroup]
     let completedToolCallGroupsForAnchor: (String?) -> [ToolCallGroup]
     let liveReasoningText: String
     let reasoningAnchorMessageID: String?
@@ -281,7 +283,7 @@ struct ChatTranscriptView: View {
                         pinReader(proxy: proxy)
                         onToggleTurnFold(turnKey)
                     },
-                    reasoningGroups: reasoningGroups,
+                    reasoningGroups: reasoningGroupsForAnchor(transcriptMessage.anchorID),
                     toolCallGroups: completedToolCallGroupsForAnchor(transcriptMessage.anchorID),
                     liveReasoningText: isReasoningAnchor ? liveReasoningText : "",
                     reasoningAnchorMessageID: isReasoningAnchor ? reasoningAnchorMessageID : nil,
@@ -497,7 +499,7 @@ struct ChatTranscriptView: View {
     @ViewBuilder
     private func reasoningBlocks(anchorMessageID: String?) -> some View {
         if showsThinkingAndToolCards {
-            ForEach(reasoningGroups.filter { $0.anchorMessageID == anchorMessageID }) { group in
+            ForEach(reasoningGroupsForAnchor(anchorMessageID)) { group in
                 ReasoningBlockView(text: group.text)
             }
         }
@@ -525,6 +527,8 @@ private struct ChatTranscriptMessageBlock: View, Equatable {
     /// Whether this row is the reply that closes a settled turn.
     let isTerminalReply: Bool
     let onToggleTurnFold: (String) -> Void
+    /// The transcript row's own reasoning slice, pre-filtered to groups anchored
+    /// to this row by `reasoningGroupsForAnchor` (stable empty for non-anchors).
     let reasoningGroups: [ReasoningGroup]
     let toolCallGroups: [ToolCallGroup]
     let liveReasoningText: String
@@ -634,8 +638,7 @@ private struct ChatTranscriptMessageBlock: View, Equatable {
 
     private var rendersActivity: Bool {
         let hasArchivedActivity = showsThinkingAndToolCards
-            && (!toolCallGroups.isEmpty
-                || reasoningGroups.contains { $0.anchorMessageID == transcriptMessage.anchorID })
+            && (!toolCallGroups.isEmpty || !reasoningGroups.isEmpty)
         return hasArchivedActivity || shouldRenderLiveReasoningBlock || shouldRenderLiveToolActivityGroup
     }
 
@@ -682,7 +685,7 @@ private struct ChatTranscriptMessageBlock: View, Equatable {
     @ViewBuilder
     private var reasoningBlocks: some View {
         if showsThinkingAndToolCards {
-            ForEach(reasoningGroups.filter { $0.anchorMessageID == transcriptMessage.anchorID }) { group in
+            ForEach(reasoningGroups) { group in
                 ReasoningBlockView(text: group.text)
             }
         }
